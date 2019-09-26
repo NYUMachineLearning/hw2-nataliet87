@@ -64,16 +64,22 @@ library(dplyr)
 library(ggfortify)
 
 
+
 #Mauna Loa CO2 concentrations
 data(airquality)
 ```
 
+```{r}
+length(airquality$Temp)
+```
 
 1. Split data into training and test set (75% in train set, 25% in test set)
-
 ```{r}
-#train_regression = 
-#test_regression = 
+train_regression <- createDataPartition(airquality$Wind, p=0.75, list = FALSE, times = 1)
+air_train <- airquality[train_regression,]
+air_test <- airquality[-train_regression,]
+
+head(air_train)
 ```
 
 
@@ -89,23 +95,29 @@ We will predict the response of the Temperature based on Wind.
 
 This is the data we will fit a linear model to. 
 ```{r}
-# ggplot(data = train_regression) +
-#   geom_point(aes(x=Wind, y=Temp)) +
-#   theme_bw()
+ggplot(data = air_train) +
+  geom_point(aes(x=Wind, y=Temp)) +
+  theme_bw()
 ```
 
 2. Create and fit a linear model to predict Temperature from Wind using the training set
 
 ```{r}
-#help(train)
+# develop model of temp onto wind, and make predictions based off training inputs
+model_linr <- train(Temp~Wind, data = air_train, method = "lm")
+model_linr
 
-#linear_regression <- train( ~ , data= , method = "lm")
+pred <- predict(model_linr, air_train)
 ```
 
 
 3. Vizualize how your model performed on the train data by plotting the regression line on top of the train data points. 
 ```{r}
-
+ggplot(data = air_train) +
+  geom_point(aes(x=Wind, y=Temp)) +
+  theme_bw() +
+  ggtitle("Linear regression line plotted over training data") +
+  geom_line(aes(x = Wind, y = pred), color = "blue")
 ```
 
 
@@ -118,50 +130,91 @@ This is the data we will fit a linear model to.
 
 4 a) See how the model performs on the test data
 ```{r}
-#help(predict)
-#linear_predict <- predict(, newdata=)
+pred_test <- predict(model_linr, air_test)
+
+ggplot(data = air_test) +
+  geom_point(aes(x=Wind, y=Temp)) +
+  ggtitle("Linear regression line plotted over test data") +
+  theme_bw() +
+  geom_line(aes(x = Wind, y = pred_test), color = "red")
 ```
 
 4 b) Look at the residuals. Are they close to zero?
 ```{r}
 #look at the median residual value. Close to zero is best
 #help(summary)
+summary(model_linr)
 ```
-
+**Median residual is 1.298, this is ok but would ideally be smaller**
 
 4 c) Plot predicted temperature vs observed temperature. A strong model should show a strong correlation
 ```{r}
-
+ggplot() +
+  geom_point(aes(x=air_test$Temp, y=pred_test)) +
+  ggtitle("Observed vs. predicted temperature using linear regression") +
+  xlab("Observed test temperature") +
+  ylab("Predicted test temperature") +
+  theme_bw() +
+  geom_abline(intercept = 0, slope = 1, color = "blue")
 ```
+**The oberved and predicted values don't cluster tightly around the central line -- it's not a particularly strong model**
+
+
 
 4 d) Visualize the predicted values in relation to the real data points. Look for homoscedasticity
 ```{r}
 # Extract coefficients from the model
+m_coef <- coef(model_linr$finalModel)
+m_coef
+pred_test <- predict(model_linr, air_test)
+
 
 # plot the regression line on the predicted values
-
 # plot the original test values
-
+ggplot(data = air_test) +
+  geom_point(aes(x=Wind, y=pred_test)) +
+  geom_point(aes(x=Wind, y=Temp), color = "blue") +
+  ggtitle("Predicted Temperatures and linear regression line") +
+  ylab("Temp: Predicted (black) and Real (blue)") +
+  theme_bw() +
+  geom_line(aes(x = Wind, y = pred_test), color = "red")
 ```
+
 
 4 e) Residuals should be normally distributed. Plot the density of the residuals
 ```{r}
-#residuals_lin <- residuals(linear_regression)
-
-#ggplot(data=residvpredict) +
-#  geom_density(aes(residual))
+#residuals_lin <- residuals(model_linr$finalModel)
+plot(density(resid(model_linr)))
+# ggplot(data=residvpredict) +
+#   geom_density(aes(residual))
 ```
+**Residuals are about evenly distributed with mean around 0**
 
 
 4 f) Independent variables and residuals should not be correlated
 ```{r}
-#cor.test(train_regression$Wind, resid(linear_regression))
+cor.test(air_train$Wind, resid(model_linr))
 ```
-
+**P-value >> 0.05, so we cannot reject the null hypothesis that residuals and independent variables are independent**
 
 ### Linear Regression with Regularization
 
 5. Create a linear model using L1 or L2 regularization to predict Temperature from Wind and Month variables. Plot your predicted values and the real Y values on the same plot. 
+```{r}
+# L2 regression:
+ctrl =  trainControl(method = "boot", 15)
+model_l1 <- train(Temp~Wind + Month, data = air_train, method = 'ridge', trControl = ctrl)
+pred_test <- predict(model_l1, air_test)
+
+ggplot() +
+  geom_point(aes(x=air_test$Temp, y=pred_test)) +
+  ggtitle("Observed vs. predicted temperature using ridge regression") +
+  xlab("Observed test temperature") +
+  ylab("Predicted test temperature") +
+  theme_bw() +
+  geom_abline(intercept = 0, slope = 1, color = "blue")
+
+```
 
 
 
